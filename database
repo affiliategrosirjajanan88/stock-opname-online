@@ -1,0 +1,101 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.master_produk (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  sku_tiktok text NOT NULL,
+  sku_shopee text NOT NULL,
+  nama_barang text NOT NULL,
+  harga_barang numeric NOT NULL DEFAULT 0 CHECK (harga_barang >= 0::numeric),
+  barcode text NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  foto_url text,
+  per_dus integer NOT NULL DEFAULT 1 CHECK (per_dus > 0),
+  stock integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  CONSTRAINT master_produk_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.opname_stock (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  produk_id bigint NOT NULL,
+  periode text NOT NULL,
+  stock integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  stock_dus integer NOT NULL DEFAULT 0 CHECK (stock_dus >= 0),
+  per_dus integer NOT NULL DEFAULT 1 CHECK (per_dus > 0),
+  CONSTRAINT opname_stock_pkey PRIMARY KEY (id),
+  CONSTRAINT opname_stock_produk_id_fkey FOREIGN KEY (produk_id) REFERENCES public.master_produk(id),
+  CONSTRAINT opname_stock_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.products (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  price numeric NOT NULL DEFAULT 0 CHECK (price >= 0::numeric),
+  stock integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  category text NOT NULL DEFAULT 'Umum'::text,
+  image_url text,
+  active boolean NOT NULL DEFAULT true,
+  pcs_per_box integer NOT NULL DEFAULT 1 CHECK (pcs_per_box > 0),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT products_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  subtotal numeric NOT NULL DEFAULT 0 CHECK (subtotal >= 0::numeric),
+  discount numeric NOT NULL DEFAULT 0 CHECK (discount >= 0::numeric),
+  total numeric NOT NULL DEFAULT 0 CHECK (total >= 0::numeric),
+  status text NOT NULL DEFAULT 'paid'::text CHECK (status = ANY (ARRAY['paid'::text, 'void'::text])),
+  cashier_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT transactions_cashier_id_fkey FOREIGN KEY (cashier_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.transaction_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  transaction_id uuid NOT NULL,
+  product_id uuid,
+  product_name text NOT NULL,
+  price numeric NOT NULL CHECK (price >= 0::numeric),
+  qty integer NOT NULL CHECK (qty > 0),
+  subtotal numeric NOT NULL CHECK (subtotal >= 0::numeric),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT transaction_items_pkey PRIMARY KEY (id),
+  CONSTRAINT transaction_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT transaction_items_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.transactions(id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  role text NOT NULL DEFAULT 'cashier'::text CHECK (role = ANY (ARRAY['admin'::text, 'cashier'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.stock_opnames (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  period date NOT NULL UNIQUE,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT stock_opnames_pkey PRIMARY KEY (id),
+  CONSTRAINT stock_opnames_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.stock_opname_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  opname_id uuid NOT NULL,
+  product_id uuid,
+  product_name text NOT NULL,
+  price numeric NOT NULL DEFAULT 0 CHECK (price >= 0::numeric),
+  pcs_per_box integer NOT NULL DEFAULT 1 CHECK (pcs_per_box > 0),
+  stock_pcs integer NOT NULL DEFAULT 0 CHECK (stock_pcs >= 0),
+  stock_boxes integer NOT NULL DEFAULT 0 CHECK (stock_boxes >= 0),
+  box_stock_pcs integer NOT NULL DEFAULT 0 CHECK (box_stock_pcs >= 0),
+  total_stock integer NOT NULL DEFAULT 0 CHECK (total_stock >= 0),
+  nominal numeric NOT NULL DEFAULT 0 CHECK (nominal >= 0::numeric),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT stock_opname_items_pkey PRIMARY KEY (id),
+  CONSTRAINT stock_opname_items_opname_id_fkey FOREIGN KEY (opname_id) REFERENCES public.stock_opnames(id),
+  CONSTRAINT stock_opname_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
